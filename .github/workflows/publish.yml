@@ -1,0 +1,117 @@
+name: publish quarto docs
+
+# Reusable workflow: gate (link harness, zero-warning render), render the
+# Quarto site with the deploy site-url, and rsync it to the docs host.
+# All endpoints and credentials arrive as inputs/secrets from the caller —
+# nothing deploy-specific lives in this repo or the consumer repo.
+#
+# Call from a thin per-repo workflow (see templates/) as:
+#   uses: georgeharker/gh-quarto-publish/.github/workflows/publish.yml@main
+
+on:
+  workflow_call:
+    inputs:
+      target-prefix:
+        description: >
+          Branch name (e.g. main, dev). The only component shared between the
+          two sides: appended to the rsync destination as a directory
+          (:/main/, under the rrsync-confined filesystem root) and to
+          site-url as a web path.
+        required: true
+        type: string
+      ssh-dest:
+        description: >
+          rsync SSH destination (user@host) — no path. The filesystem root
+          (e.g. public_html/docs.example.com/project) lives entirely in the
+          server-side rrsync forced command, never here.
+        required: true
+        type: string
+      site-url:
+        description: >
+          Public base URL (e.g. https://docs.example.com/project) used for
+          canonical links/sitemap. Web-facing only — the server's docroot
+          layout (public_html/...) never appears in it.
+        required: true
+        type: string
+      quarto-version:
+        description: Quarto release to render with
+        required: false
+        type: string
+        default: "1.9.38"
+    secrets:
+      deploy-key:
+        description: Private deploy key (forced-command rrsync key on the host)
+        required: true
+      host-key:
+        description: Pinned known_hosts line for the docs host
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The harness ships with this reusable workflow, pinned to the same
+      # commit the caller resolved (job_workflow_sha), so workflow and
+      # harness can never skew.
+      - name: Check out the docs harness
+        uses: actions/checkout@v4
+        with:
+          repository: georgeharker/gh-quarto-publish
+          ref: ${{ github.job_workflow_sha }}
+          path: .gh-quarto-publish
+
+      - name: Install zsh for the docs harness
+        shell: bash
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zsh
+
+      - name: Docs harness (links, anchors, render-list reachability)
+        shell: bash
+        # A repo-local scripts/check-docs.zsh overrides the shared harness —
+        # keep one only if your repo needs extra passes.
+        run: |
+          if [ -f scripts/check-docs.zsh ]; then
+            zsh scripts/check-docs.zsh
+          else
+            zsh .gh-quarto-publish/scripts/check-docs.zsh
+          fi
+
+      - name: Remove the harness checkout before rendering
+        shell: bash
+        run: rm -rf .gh-quarto-publish
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: ${{ inputs.quarto-version }}
+
+      - name: Render (zero-warning gate)
+        shell: bash
+        run: |
+          printf 'website:\n  site-url: "%s/%s/"\n' \
+            "${{ inputs.site-url }}" "${{ inputs.target-prefix }}" > _quarto-deploy.yml
+          QUARTO_PROFILE=deploy quarto render 2>&1 | tee /tmp/render.log
+          if grep -qiE 'warning|error' /tmp/render.log; then
+            echo "::error::quarto render produced warnings/errors"
+            exit 1
+          fi
+
+      - name: Upload via rsync (rrsync-confined)
+        shell: bash
+        # The private key is passed via env (not ${{ }}-interpolated into the
+        # script body, which would land it on disk) and loaded into an
+        # ephemeral ssh-agent from stdin — it never touches the filesystem.
+        # Only the (public) pinned host key is written to a file.
+        env:
+          DEPLOY_KEY: ${{ secrets.deploy-key }}
+          HOST_KEY: ${{ secrets.host-key }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$HOST_KEY" > ~/.ssh/docs_known_hosts
+          eval "$(ssh-agent -s)" >/dev/null
+          trap 'ssh-agent -k >/dev/null 2>&1' EXIT
+          printf '%s\n' "$DEPLOY_KEY" | ssh-add -q -
+          rsync -az --delete \
+            -e "ssh -o UserKnownHostsFile=$HOME/.ssh/docs_known_hosts -o StrictHostKeyChecking=yes" \
+            _site/ "${{ inputs.ssh-dest }}:/${{ inputs.target-prefix }}/"

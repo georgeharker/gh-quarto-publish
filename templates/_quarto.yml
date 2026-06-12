@@ -1,0 +1,41 @@
+# Template _quarto.yml for a gh-quarto-publish consumer repo.
+# Replace <project> and the render/sidebar lists with your repo's docs.
+project:
+  type: website
+  render:
+    - index.md
+    - README.md         # README files must be listed explicitly; globs skip them
+    - docs/*.md
+    # Exclude repo-only documents (design records, maintainer notes) from the
+    # published site with a "!" entry — they stay in the repo:
+    # - "!docs/some-design-record.md"
+
+# gfm_auto_identifiers makes heading anchors match GitHub's slugs, which the
+# docs' cross-links use. Keep pandoc's full markdown reader otherwise —
+# `from: gfm` breaks Quarto's navigation divs.
+from: markdown+gfm_auto_identifiers
+
+website:
+  title: "<project>"
+  search: true
+  sidebar:
+    style: docked
+    tools:
+      - icon: github
+        href: https://github.com/<owner>/<project>
+        text: GitHub repository
+    contents:
+      - text: "Home"
+        href: index.md
+      - text: "Overview (README)"
+        href: README.md
+      # Group further docs into sections:
+      # - section: "Guides"
+      #   contents:
+      #     - docs/guide-one.md
+
+format:
+  html:
+    theme: pulse
+    toc: true
+    embed-resources: true
