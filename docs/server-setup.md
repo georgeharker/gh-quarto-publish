@@ -152,6 +152,13 @@ when adding more users).
 
 ## Per project
 
+Steps 1–4 below (docroot, deploy keypair, forced-command `authorized_keys`
+line, and the pinned host key — plus the GitHub-side secrets/variables from
+[repo-setup.md](repo-setup.md)) can be done in one shot with
+`scripts/setup-docs-automation.zsh`; see
+[repo-setup.md](repo-setup.md#with-the-helper-script). The manual steps below
+document what it automates.
+
 ### 1. Create the docroot
 
 ```bash

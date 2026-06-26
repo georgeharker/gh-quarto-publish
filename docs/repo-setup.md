@@ -14,6 +14,36 @@ you can merge the workflows first and configure deployment later.
 The filesystem path on the host appears in none of these — it lives only in
 the server-side rrsync forced command ([server-setup.md](server-setup.md)).
 
+## With the helper script
+
+`scripts/setup-docs-automation.zsh` does the whole per-project provision in
+one shot: it generates the deploy keypair, sets all four secrets/variables
+below, and (unless `-S` is given) ssh'es to the docs host to create the
+project docroot and append the rrsync forced-command line to
+`authorized_keys` — i.e. it also covers the per-project steps in
+[server-setup.md](server-setup.md). The one-time host setup (rrsync,
+`.htaccess`) is still manual.
+
+The deploy host, SSH user, and site base URL have no portable default, so
+pass them by flag (or the matching `DOCS_*` environment variable; a personal
+wrapper can export them):
+
+```bash
+scripts/setup-docs-automation.zsh \
+    --host docs-host.example.net \
+    --ssh-user docsuser \
+    --base-url https://docs.example.com \
+    <project>
+```
+
+Run it from a checkout of the target repo, or add `-R <owner>/<project>`.
+Pass an explicit docs URL path as a second argument if it differs from
+`<project>`. To store the generated private key in a secret manager, pass
+`--key-import '<cmd>'` (invoked as `<cmd> <key_name> <key_path>`); otherwise
+the key is left in `~/.ssh/` for you to upload. See `--help` for the full
+flag/env list. The steps below document the same secrets/variables for when
+you'd rather set them by hand.
+
 ## With the gh CLI
 
 Run from a checkout of the target repo (or add `-R <owner>/<project>`).

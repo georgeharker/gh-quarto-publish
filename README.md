@@ -53,10 +53,11 @@ Copy-paste starting points for all consumer-repo files are in
 ## Repository contents
 
 ```
-.github/workflows/publish.yml   # the reusable workflow (workflow_call)
-scripts/check-docs.zsh          # shared docs harness, run by the workflow
-templates/                      # caller workflows, _quarto.yml, index.md
-docs/                           # setup and integration guides
+.github/workflows/publish.yml      # the reusable workflow (workflow_call)
+scripts/check-docs.zsh             # shared docs harness, run by the workflow
+scripts/setup-docs-automation.zsh  # one-shot per-project provisioning helper
+templates/                         # caller workflows, _quarto.yml, index.md
+docs/                              # setup and integration guides
 ```
 
 ## Quick integration checklist
@@ -70,3 +71,7 @@ docs/                           # setup and integration guides
    ([repo-setup.md](docs/repo-setup.md))
 4. Push a docs change (or run *docs (branch push)* manually) and check
    `https://docs.example.com/<project>/main/`.
+
+Steps 1 and 3 (the deploy key, repo secrets/variables, and the host's
+docroot + forced-command authorized_keys line) can be done in one shot with
+`scripts/setup-docs-automation.zsh` — see [repo-setup.md](docs/repo-setup.md).
