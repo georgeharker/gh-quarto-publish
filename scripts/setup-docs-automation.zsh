@@ -204,11 +204,15 @@ else
   # POSIX shell; the body is a quoted heredoc that runs verbatim on the host
   # (its $HOME/$REMOTE_DIR/etc. are expanded there, not locally).
   remote_body="$(cat <<'REMOTE'
-umask 077
 mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
 touch "$HOME/.ssh/authorized_keys"
 chmod 600 "$HOME/.ssh/authorized_keys"
+# The docroot must be world-traversable so the web server can reach the
+# published files — do NOT let the .ssh umask leak onto it. chmod (not just
+# a umask) so a re-run also repairs a dir an older version created as 700.
 mkdir -p "$REMOTE_DIR"
+chmod 755 "$REMOTE_DIR"
 echo "docs dir ready: $REMOTE_DIR"
 if grep -qF "$PUB_BLOB" "$HOME/.ssh/authorized_keys"; then
   echo "authorized_keys: deploy key already present"
