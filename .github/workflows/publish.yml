@@ -77,9 +77,16 @@ jobs:
             zsh .gh-quarto-publish/scripts/check-docs.zsh
           fi
 
-      - name: Remove the harness checkout before rendering
+      - name: Stage render filters, then remove the harness checkout
         shell: bash
-        run: rm -rf .gh-quarto-publish
+        # The harness checkout is removed before rendering so its own markdown
+        # never lands in the caller's render globs — so anything the render
+        # needs must be copied out first. .quarto-filters/ holds only .lua, which
+        # no render list matches.
+        run: |
+          mkdir -p .quarto-filters
+          cp .gh-quarto-publish/filters/*.lua .quarto-filters/
+          rm -rf .gh-quarto-publish
 
       - uses: quarto-dev/quarto-actions/setup@v2
         with:
@@ -88,8 +95,17 @@ jobs:
       - name: Render (zero-warning gate)
         shell: bash
         run: |
-          printf 'website:\n  site-url: "%s/%s/"\n' \
-            "${{ inputs.site-url }}" "${{ inputs.target-prefix }}" > _quarto-deploy.yml
+          # The deploy profile is merged over the caller's _quarto.yml. Besides
+          # the site URL it applies the harness filters (badge stripping), so
+          # callers get them without adding anything to their own config.
+          # NOTE: a profile's `filters:` replaces a caller's own `filters:` for
+          # this render — keep shared filters here rather than per-repo.
+          {
+            printf 'website:\n  site-url: "%s/%s/"\n' \
+              "${{ inputs.site-url }}" "${{ inputs.target-prefix }}"
+            printf 'filters:\n'
+            for f in .quarto-filters/*.lua; do printf '  - %s\n' "$f"; done
+          } > _quarto-deploy.yml
           QUARTO_PROFILE=deploy quarto render 2>&1 | tee /tmp/render.log
           if grep -qiE 'warning|error' /tmp/render.log; then
             echo "::error::quarto render produced warnings/errors"

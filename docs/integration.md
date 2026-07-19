@@ -47,7 +47,18 @@ bite:
   anchors match GitHub's slugs, so `#section-links` work in both places. Do
   not switch to `from: gfm` — it breaks Quarto's navigation divs.
 - `embed-resources: true` makes each page self-contained, which keeps the
-  rsync'd site free of shared asset directories.
+  rsync'd site free of shared asset directories. Note the consequence: every
+  external image is **fetched and inlined at render time**, so an unreachable
+  image host turns into a `[WARNING]` and fails the zero-warning gate.
+- **Badges are stripped for you.** `img.shields.io` images (and their wrapping
+  link) are removed during render by a harness filter, so keep badges in your
+  README as ordinary markdown — GitHub renders them, the published site omits
+  them, and shields.io is never contacted during the build. You do not need any
+  markup or config for this.
+- **Caveat:** the deploy profile sets `filters:`, which *replaces* a
+  `filters:` list in your own `_quarto.yml` for the published render. Put
+  filters you want shared in the harness (`filters/*.lua`) rather than per-repo;
+  a repo-local filter still applies to local `quarto render`.
 
 ## 3. `index.md` landing page
 
