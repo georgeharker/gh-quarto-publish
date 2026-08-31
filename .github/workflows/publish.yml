@@ -50,13 +50,13 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # The harness ships with this reusable workflow, pinned to the same
       # commit the caller resolved (job_workflow_sha), so workflow and
       # harness can never skew.
       - name: Check out the docs harness
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: georgeharker/gh-quarto-publish
           ref: ${{ github.job_workflow_sha }}
