@@ -24,10 +24,45 @@ no-ops until the repo is configured ([repo-setup.md](repo-setup.md)), so
 they're safe to merge ahead of time.
 
 Pinning: the templates reference
-`georgeharker/gh-quarto-publish/.github/workflows/publish.yml@main`. Pin to
-a tag instead once this repo starts tagging releases. The docs-check harness
-is checked out at the exact commit the workflow ref resolved to
-(`github.job_workflow_sha`), so workflow and harness never skew.
+`georgeharker/gh-quarto-publish/.github/workflows/publish.yml@main`, so every
+consumer picks up workflow fixes automatically (dependency bumps, harness
+changes). A third party who wants immutability can pin to a tag or commit SHA
+instead. The docs-check harness is checked out at the exact commit the
+workflow ref resolved to (`github.job_workflow_sha`), so workflow and harness
+never skew either way.
+
+
+## Social previews & extra assets
+
+Link cards (Reddit, Slack, Discord, iMessage, X) are built from **Open Graph
+tags**, which a bare `_quarto.yml` does not emit. Add under `website:`:
+
+```yaml
+site-url: https://docs.example.com/<project>   # canonical base
+open-graph:
+  image: https://docs.example.com/<project>/main/docs/images/og-card.png
+  locale: en_US
+twitter-card: true
+```
+
+Three rules learned the hard way:
+
+- **The image URL must be absolute.** Crawlers do not resolve relative paths.
+- **An absolute `open-graph.image` skips Quarto's auto-copy.** Quarto only
+  copies images it can map to a local file, so an absolute URL ships *nothing*.
+  Force-ship the file with `project.resources:`.
+- **`project.resources` files land at their project-root-relative path.**
+  `docs/images/og-card.png` publishes to `<site-url>/<branch>/docs/images/og-card.png`
+  — the `/docs/` segment is easy to miss in the URL (and nothing 404s until a
+  crawler asks). The deploy-time verification below catches exactly this.
+
+And the operational rule: **share after the first green deploy.** Reddit caches
+the preview at submission time, effectively permanently — a 404 card on the
+first post never self-heals; delete and resubmit.
+
+The publish workflow verifies what it ships: after rsync it curls the deployed
+root and any absolute `og:image` found in the rendered index, failing the job
+on a non-200 — so a broken card is a red check, not a surprise on Reddit.
 
 ## 2. `_quarto.yml`
 

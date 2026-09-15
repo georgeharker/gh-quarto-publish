@@ -131,3 +131,26 @@ jobs:
           rsync -az --delete \
             -e "ssh -o UserKnownHostsFile=$HOME/.ssh/docs_known_hosts -o StrictHostKeyChecking=yes" \
             _site/ "${{ inputs.ssh-dest }}:/${{ inputs.target-prefix }}/"
+
+      - name: Verify deployment (root + og:image resolve)
+        shell: bash
+        # Catch what the rsync can't see: a broken absolute og:image URL ships
+        # "successfully" and only fails when a crawler (or a Reddit post)
+        # fetches it — and link-preview caches are effectively permanent.
+        run: |
+          base="${{ inputs.site-url }}/${{ inputs.target-prefix }}"
+          sleep 3   # small settle for static hosts
+          code=$(curl -sL -o /dev/null -w '%{http_code}' "$base/")
+          if [ "$code" != 200 ]; then
+            echo "::error::deployed root $base/ returned HTTP $code"
+            exit 1
+          fi
+          og=$(grep -oE '<meta property="og:image" content="[^"]+"' _site/index.html             | head -1 | sed 's/.*content="//;s/"$//')
+          if [ -n "$og" ]; then
+            code=$(curl -sL -o /dev/null -w '%{http_code}' "$og")
+            if [ "$code" != 200 ]; then
+              echo "::error::og:image $og returned HTTP $code — share previews will be broken (preview caches never re-fetch)"
+              exit 1
+            fi
+          fi
+          echo "verified: $base/ 200${og:+ · og:image 200}"

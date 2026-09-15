@@ -9,6 +9,22 @@ Each consuming repo carries only two thin caller workflows; the pipeline —
 docs link checking, zero-warning Quarto render, hardened rsync upload —
 lives here and is shared by every project.
 
+
+## Quickstart
+
+1. **Once per web host** — [docs/server-setup.md](docs/server-setup.md):
+   rrsync confinement, deploy keys, `.htaccess`.
+2. **Per repo** — run `scripts/setup-docs-automation.zsh <project>` (from the
+   consuming repo): mints the deploy key, sets the repo secret + variables,
+   and installs the server-side authorized_keys line. See
+   [docs/repo-setup.md](docs/repo-setup.md).
+3. **Copy the templates** — [templates/](templates/): two thin caller
+   workflows, `_quarto.yml`, `index.md`. Commit, push.
+4. First green run publishes to `https://<site-url>/<branch>/` — and now also
+   verifies the deployed root and social-preview image resolve.
+
+File-by-file details: [docs/integration.md](docs/integration.md).
+
 ## How it works
 
 ```

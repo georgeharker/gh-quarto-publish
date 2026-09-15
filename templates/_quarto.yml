@@ -2,6 +2,12 @@
 # Replace <project> and the render/sidebar lists with your repo's docs.
 project:
   type: website
+  # Extra files no page references (e.g. a social-preview card image) must be
+  # listed under resources: — Quarto only auto-copies page-referenced assets.
+  # They land in _site at their PROJECT-ROOT-RELATIVE path, so
+  # docs/images/og-card.png publishes to <site-url>/<branch>/docs/images/og-card.png.
+  # resources:
+  #   - docs/images/og-card.png
   render:
     - index.md
     - README.md         # README files must be listed explicitly; globs skip them
@@ -17,6 +23,15 @@ from: markdown+gfm_auto_identifiers
 
 website:
   title: "<project>"
+  # Social previews (Reddit / Slack / iMessage read Open Graph tags). The
+  # og:image MUST be an absolute URL — crawlers can't resolve relative paths —
+  # and an absolute URL skips Quarto's auto-copy, so the file also needs the
+  # resources: entry above. See integration.md § Social previews.
+  # site-url: https://docs.example.com/<project>
+  # open-graph:
+  #   image: https://docs.example.com/<project>/main/docs/images/og-card.png
+  #   locale: en_US
+  # twitter-card: true
   search: true
   sidebar:
     style: docked
