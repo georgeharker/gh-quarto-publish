@@ -146,28 +146,48 @@ jobs:
           # instead of a single settle-and-hope (first outing of this check raced
           # the deploy on two repos and false-failed both).
           code=""
-          for i in 1 2 3 4 5 6; do
+          why=""
+          i=0
+          while [ "$i" -lt 10 ]; do
+            i=$((i + 1))
             sleep 3
-            code=$(curl -sL -o /dev/null -w '%{http_code}' "$base/")
-            # NB: `&& break` would trip `set -e` when the test is false — the
-            # step shell is `bash -e -o pipefail` — killing the retry loop on its
-            # first non-200. An if-statement's status never triggers -e.
-            if [ "$code" = 200 ]; then break; fi
+            # NB: the step shell is `bash -e -o pipefail` — a failing command
+            # substitution (curl exit ≠ 0, eg a network-level failure with no
+            # HTTP response at all) would kill the step before any retry and
+            # before any error message. Guard the substitution and CAPTURE the
+            # curl failure so the annotation says why, not just that.
+            if code=$(curl -sS -L -o /dev/null -w "%{http_code}" "$base/" 2>/tmp/curl.err); then
+              if [ "$code" = 200 ]; then break; fi
+              why="HTTP $code"
+            else
+              rc=$?
+              code=000
+              why="curl exit $rc: $(tail -n 1 /tmp/curl.err 2>/dev/null)"
+            fi
           done
           if [ "$code" != 200 ]; then
-            echo "::error::deployed root $base/ returned HTTP $code (polled ~18s after rsync)"
+            echo "::error::deployed root $base/ unreachable after $i polls (~$((i * 3))s): $why"
             exit 1
           fi
           og=$(grep -oE '<meta property="og:image" content="[^"]+"' _site/index.html | head -1 | sed 's/.*content="//;s/"$//')
           if [ -n "$og" ]; then
             code=""
-            for i in 1 2 3 4 5 6; do
-              code=$(curl -sL -o /dev/null -w '%{http_code}' "$og")
-              if [ "$code" = 200 ]; then break; fi
+            why=""
+            i=0
+            while [ "$i" -lt 10 ]; do
+              i=$((i + 1))
+              if code=$(curl -sS -L -o /dev/null -w "%{http_code}" "$og" 2>/tmp/curl-og.err); then
+                if [ "$code" = 200 ]; then break; fi
+                why="HTTP $code"
+              else
+                rc=$?
+                code=000
+                why="curl exit $rc: $(tail -n 1 /tmp/curl-og.err 2>/dev/null)"
+              fi
               sleep 3
             done
             if [ "$code" != 200 ]; then
-              echo "::error::og:image $og returned HTTP $code — share previews will be broken (preview caches never re-fetch)"
+              echo "::error::og:image $og unreachable after $i polls: $why — share previews will be broken (preview caches never re-fetch)"
               exit 1
             fi
           fi
