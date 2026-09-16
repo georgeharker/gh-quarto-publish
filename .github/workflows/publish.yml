@@ -141,6 +141,10 @@ jobs:
         # _quarto.yml (see templates/_quarto.yml § Social previews) render one,
         # so the check below only runs when the rendered output declares it.
         run: |
+          set +e   # This step manages its own exits. GitHub's default `bash -e` killed
+                  # the verify on ANY failing substitution — curl's network-level
+                  # failures AND the diagnostic tail of an empty error file both
+                  # bit us, each time silently at +3s before any message.
           base="${{ inputs.site-url }}/${{ inputs.target-prefix }}"
           # Static hosts can need a beat to serve freshly rsync'd content — poll
           # instead of a single settle-and-hope (first outing of this check raced
