@@ -149,7 +149,10 @@ jobs:
           for i in 1 2 3 4 5 6; do
             sleep 3
             code=$(curl -sL -o /dev/null -w '%{http_code}' "$base/")
-            [ "$code" = 200 ] && break
+            # NB: `&& break` would trip `set -e` when the test is false — the
+            # step shell is `bash -e -o pipefail` — killing the retry loop on its
+            # first non-200. An if-statement's status never triggers -e.
+            if [ "$code" = 200 ]; then break; fi
           done
           if [ "$code" != 200 ]; then
             echo "::error::deployed root $base/ returned HTTP $code (polled ~18s after rsync)"
@@ -160,7 +163,7 @@ jobs:
             code=""
             for i in 1 2 3 4 5 6; do
               code=$(curl -sL -o /dev/null -w '%{http_code}' "$og")
-              [ "$code" = 200 ] && break
+              if [ "$code" = 200 ]; then break; fi
               sleep 3
             done
             if [ "$code" != 200 ]; then
